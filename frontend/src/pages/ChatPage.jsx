@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { askCodeQuestion } from "../services/api";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const starterCode = `def total_price(items):
     total = 0
@@ -9,6 +11,12 @@ const starterCode = `def total_price(items):
 `;
 
 function ChatPage() {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
   const [code, setCode] = useState(starterCode);
   const [question, setQuestion] = useState("Explain this code and suggest improvements.");
   const [response, setResponse] = useState("");

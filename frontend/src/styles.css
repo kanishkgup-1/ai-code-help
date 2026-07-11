@@ -122,6 +122,57 @@ textarea {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.profile-link,
+.profile-avatar {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: #071220;
+}
+
+.profile-link {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.profile-link svg {
+  width: 1.45rem;
+  fill: currentColor;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.auth-layout { max-width: 520px; }
+
+.auth-card {
+  display: grid;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1,
+.auth-card p { margin: 0; }
+.auth-card p { color: var(--text-muted); }
+.auth-card .panel-error { color: #ffc2c2; }
+.auth-toggle { justify-self: start; border: 0; padding: 0; color: var(--accent); background: transparent; cursor: pointer; }
+.profile-card { max-width: 520px; text-align: center; justify-items: center; }
+.profile-avatar { width: 5rem; height: 5rem; font-size: 2rem; font-weight: 700; }
+
 .hero-section,
 .page-section {
   padding: 4.5rem 0 5rem;
@@ -197,6 +248,11 @@ textarea {
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-main);
   border: 1px solid var(--border);
+}
+.button-secondary1 {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: #08131f;
+  font-weight: 700;
 }
 
 .hero-panel,

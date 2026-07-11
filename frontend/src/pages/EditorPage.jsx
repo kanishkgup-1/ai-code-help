@@ -2,6 +2,8 @@ import Editor from "@monaco-editor/react";
 import { useEffect, useRef, useState } from "react";
 import SuggestionPanel from "../components/SuggestionPanel";
 import { analyzeCode } from "../services/api";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const initialCode = `# Code here...`;
 
@@ -22,6 +24,11 @@ function countNewMeaningfulLines(currentCode, previousCode) {
 }
 
 function EditorPage() {
+  const { user } = useAuth();
+
+  if (!user || user.tier !== "pro") {
+    return <Navigate to="/auth" replace />;
+  }
   const [code, setCode] = useState(initialCode);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);

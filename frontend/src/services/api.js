@@ -1,12 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
-async function request(path, payload) {
+async function request(path, payload, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
+    method: options.method ?? "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {})
     },
-    body: JSON.stringify(payload)
+    ...(payload === undefined ? {} : { body: JSON.stringify(payload) })
   });
 
   const data = await response.json().catch(() => ({}));
@@ -27,4 +28,20 @@ export function analyzeCode(code, options = {}) {
 
 export function askCodeQuestion(payload) {
   return request("/chat", payload);
+}
+
+export function registerAccount(payload) {
+  return request("/auth/register", payload);
+}
+
+export function loginAccount(payload) {
+  return request("/auth/login", payload);
+}
+
+export function getCurrentUser(token) {
+  return request("/auth/me", undefined, { method: "GET", token });
+}
+
+export function subscribeToPro(token) {
+  return request("/users/me/subscription", undefined, { method: "PUT", token });
 }

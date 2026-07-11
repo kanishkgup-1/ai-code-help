@@ -3,9 +3,16 @@ import dotenv from "dotenv";
 dotenv.config({ path: "../.env" });
 dotenv.config();
 
+const clientOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const env = {
   port: Number.parseInt(process.env.PORT ?? "5000", 10),
-  clientOrigin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173",
+  clientOrigins,
+  mongoUri: process.env.MONGODB_URI ?? "",
+  jwtSecret: process.env.JWT_SECRET ?? "",
   pythonBin: process.env.PYTHON_BIN ?? "python",
   aiProvider: process.env.AI_PROVIDER ?? "google-ai-studio",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
