@@ -27,16 +27,24 @@ function EditorPage() {
   const { user } = useAuth();
 
   if (!user || user.tier !== "pro") {
+    alert("Subscribe to Pro to access the editor.");
     return <Navigate to="/auth" replace />;
   }
   const [code, setCode] = useState(initialCode);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isSuggestionsOn, setIsSuggestionsOn] = useState(true);
   const lastAiCallAtRef = useRef(0);
   const lastAiReviewedCodeRef = useRef(initialCode);
 
   useEffect(() => {
+    if (!isSuggestionsOn) {
+      setSuggestions([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     const trimmed = code.trim();
 
     if (!trimmed) {
@@ -60,9 +68,15 @@ function EditorPage() {
     }, 800);
 
     return () => window.clearTimeout(timeoutId);
-  }, [code]);
+  }, [isSuggestionsOn, code]);
 
   useEffect(() => {
+    if (!isSuggestionsOn) {
+      setSuggestions([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     const trimmed = code.trim();
 
     if (!trimmed) {
@@ -97,7 +111,7 @@ function EditorPage() {
     }, AI_ANALYSIS_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [code]);
+  }, [isSuggestionsOn, code]);
 
   return (
     <div className="page-section">
@@ -136,12 +150,18 @@ function EditorPage() {
               />
             </div>
           </section>
-
-          <SuggestionPanel suggestions={suggestions} loading={loading} error={error} />
+          <aside className="suggestion-panel">
+            <div className="panel-heading">
+              <h2>Live Suggestions</h2>
+              <button className="button button-secondary" type="button" onClick={() => setIsSuggestionsOn(!isSuggestionsOn)}>
+                {isSuggestionsOn ? "Hide" : "Show"} Suggestions
+              </button>
+            </div>
+            {isSuggestionsOn && (<SuggestionPanel suggestions={suggestions} loading={loading} error={error} />)}
+          </aside>
         </div>
       </div>
     </div>
   );
 }
-
 export default EditorPage;

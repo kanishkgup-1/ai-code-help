@@ -80,6 +80,7 @@ npm run dev:frontend
 |---|---|
 | `PORT` | Express server port |
 | `CLIENT_ORIGIN` | Allowed frontend origin for CORS |
+| `VERCEL_PROJECT_SLUG` | Vercel project slug whose preview deployments are allowed by CORS |
 | `PYTHON_BIN` | Python executable used for syntax compilation |
 | `AI_PROVIDER` | `google-ai-studio` for Gemini or `placeholder` for local fallback |
 | `GEMINI_API_KEY` | Google AI Studio API key for chat and AI-powered editor reviews |

@@ -8,9 +8,27 @@ const clientOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const vercelProjectSlug = process.env.VERCEL_PROJECT_SLUG ?? "ai-code-help-frontend";
+
+function isAllowedVercelOrigin(origin) {
+  try {
+    const { protocol, hostname } = new URL(origin);
+    return (
+      protocol === "https:" &&
+      (hostname === `${vercelProjectSlug}.vercel.app` ||
+        (hostname.startsWith(`${vercelProjectSlug}-`) && hostname.endsWith(".vercel.app")))
+    );
+  } catch {
+    return false;
+  }
+}
+
 const env = {
   port: Number.parseInt(process.env.PORT ?? "5000", 10),
   clientOrigins,
+  isAllowedOrigin(origin) {
+    return clientOrigins.includes(origin) || isAllowedVercelOrigin(origin);
+  },
   mongoUri: process.env.MONGODB_URI ?? "",
   jwtSecret: process.env.JWT_SECRET ?? "",
   pythonBin: process.env.PYTHON_BIN ?? "python",

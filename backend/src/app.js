@@ -10,7 +10,7 @@ const app = express();
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || env.clientOrigins.includes(origin)) {
+      if (!origin || env.isAllowedOrigin(origin)) {
         callback(null, true);
         return;
       }

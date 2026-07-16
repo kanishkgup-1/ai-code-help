@@ -1,10 +1,6 @@
 function SuggestionPanel({ suggestions, loading, error }) {
   return (
-    <aside className="suggestion-panel">
-      <div className="panel-heading">
-        <h2>Live Suggestions</h2>
-      </div>
-
+    <>
       {loading ? <div className="panel-status">Analyzing code...</div> : null}
       {error ? <div className="panel-error">{error}</div> : null}
 
@@ -26,7 +22,7 @@ function SuggestionPanel({ suggestions, loading, error }) {
           </article>
         ))}
       </div>
-    </aside>
+    </>
   );
 }
 
