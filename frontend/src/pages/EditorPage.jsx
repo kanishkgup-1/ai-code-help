@@ -1,10 +1,12 @@
 import Editor from "@monaco-editor/react";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import SuggestionPanel from "../components/SuggestionPanel";
 import { analyzeCode } from "../services/api";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
+import { getCollaborationSession, createCollaborationSession, leaveCollaborationSession } from "../services/collaboration";
+import CollaborationBar from "../components/CollaborationBar";
+import { EditorContext } from "../context/editorContext";
 const initialCode = `# Code here...`;
 
 const STATIC_ANALYSIS_DELAY_MS = 800;
@@ -24,46 +26,54 @@ function countNewMeaningfulLines(currentCode, previousCode) {
 }
 
 function EditorPage() {
-  const { user } = useAuth();
-
+  const { user, token } = useAuth();
+  const { editorPageData, setEditorPageData } = useContext(EditorContext);
   if (!user || user.tier !== "pro") {
     alert("Subscribe to Pro to access the editor.");
     return <Navigate to="/auth" replace />;
   }
-  const [code, setCode] = useState(initialCode);
-  const [suggestions, setSuggestions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [isSuggestionsOn, setIsSuggestionsOn] = useState(true);
+  const [copied, setCopied] = useState(false);
   const lastAiCallAtRef = useRef(0);
   const lastAiReviewedCodeRef = useRef(initialCode);
+  const {
+    code,
+    suggestions,
+    loading,
+    error,
+    isSuggestionsOn,
+    collaborationSession,
+    isSessionOn
+  } = editorPageData;
+  const { owner, participants = [], roomId } = collaborationSession ?? {};
+  const isOwner = owner === user.id;
+
+  useEffect(() => {
+    getCollaborationSession(token)
+      .then(({ session }) => setEditorPageData((prev) => ({ ...prev, collaborationSession: session, isSessionOn: true })))
+      .catch(() => setEditorPageData((prev) => ({ ...prev, collaborationSession: null })));
+  }, [token]);
 
   useEffect(() => {
     if (!isSuggestionsOn) {
-      setSuggestions([]);
-      setLoading(false);
-      setError("");
+      setEditorPageData((prev) => ({ ...prev, suggestions: [], loading: false, error: "" }));
       return;
     }
     const trimmed = code.trim();
 
     if (!trimmed) {
-      setSuggestions([]);
-      setLoading(false);
-      setError("");
+      setEditorPageData((prev) => ({ ...prev, suggestions: [], loading: false, error: "" }));
       return undefined;
     }
 
     const timeoutId = window.setTimeout(async () => {
       try {
-        setLoading(true);
-        setError("");
+        setEditorPageData((prev) => ({ ...prev, loading: true, error: "" }));
         const data = await analyzeCode(code, { useAi: false });
-        setSuggestions(data.suggestions ?? []);
+        setEditorPageData((prev) => ({ ...prev, suggestions: data.suggestions ?? [] }));
       } catch (analysisError) {
-        setError(analysisError.message || "Unable to analyze code right now.");
+        setEditorPageData((prev) => ({ ...prev, error: analysisError.message || "Unable to analyze code right now." }));
       } finally {
-        setLoading(false);
+        setEditorPageData((prev) => ({ ...prev, loading: false }));
       }
     }, 800);
 
@@ -72,9 +82,7 @@ function EditorPage() {
 
   useEffect(() => {
     if (!isSuggestionsOn) {
-      setSuggestions([]);
-      setLoading(false);
-      setError("");
+      setEditorPageData((prev) => ({ ...prev, suggestions: [], loading: false, error: "" }));
       return;
     }
     const trimmed = code.trim();
@@ -95,24 +103,51 @@ function EditorPage() {
       }
 
       try {
-        setLoading(true);
-        setError("");
+        setEditorPageData((prev) => ({ ...prev, loading: true, error: "" }));
         const data = await analyzeCode(code, { useAi: true });
-        setSuggestions(data.suggestions ?? []);
+        setEditorPageData((prev) => ({ ...prev, suggestions: data.suggestions ?? [] }));
         if (data.aiUsed === true) {
           lastAiCallAtRef.current = Date.now();
           lastAiReviewedCodeRef.current = code;
         }
       } catch (analysisError) {
-        setError(analysisError.message || "Unable to run AI review right now.");
+        setEditorPageData((prev) => ({ ...prev, error: analysisError.message || "Unable to run AI review right now." }));
       } finally {
-        setLoading(false);
+        setEditorPageData((prev) => ({ ...prev, loading: false }));
       }
     }, AI_ANALYSIS_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
   }, [isSuggestionsOn, code]);
 
+  const handleInvite = async () => {
+    try {
+      let activeRoomId = roomId;
+      if (!activeRoomId) {
+        const { session } = await createCollaborationSession(token);
+        setEditorPageData((prev) => ({ ...prev, collaborationSession: session }));
+        activeRoomId = session.roomId;
+      }
+
+      await navigator.clipboard.writeText(activeRoomId);
+      setEditorPageData((prev) => ({ ...prev, roomId: activeRoomId }));
+      setCopied(true);
+      setEditorPageData((prev) => ({ ...prev, isSessionOn: true }));
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+  const handleSession = async () => {
+    try {
+      await leaveCollaborationSession(token, roomId);
+      setEditorPageData((prev) => ({ ...prev, collaborationSession: null, isSessionOn: false }));
+    } catch (error) {
+      console.error("Failed to leave room:", error);
+    }
+  };
   return (
     <div className="page-section">
       <div className="container">
@@ -131,7 +166,8 @@ function EditorPage() {
           <section className="editor-shell">
             <div className="editor-header">
               <h2>Python Editor</h2>
-              <span>Monaco Editor</span>
+              {(!roomId || (isOwner && participants.length < 2)) ? <span><button className="button button-secondary" type="button" onClick={handleInvite}>{copied ? "Copied!" : "Invite+"}</button></span> : null}
+
             </div>
             <div className="editor-frame">
               <Editor
@@ -139,7 +175,7 @@ function EditorPage() {
                 defaultLanguage="python"
                 theme="vs-dark"
                 value={code}
-                onChange={(value) => setCode(value ?? "")}
+                onChange={(value) => setEditorPageData((prev) => ({ ...prev, code: value ?? "" }))}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
@@ -151,13 +187,25 @@ function EditorPage() {
             </div>
           </section>
           <aside className="suggestion-panel">
-            <div className="panel-heading">
-              <h2>Live Suggestions</h2>
-              <button className="button button-secondary" type="button" onClick={() => setIsSuggestionsOn(!isSuggestionsOn)}>
-                {isSuggestionsOn ? "Hide" : "Show"} Suggestions
-              </button>
-            </div>
-            {isSuggestionsOn && (<SuggestionPanel suggestions={suggestions} loading={loading} error={error} />)}
+            {isSessionOn && (
+              <section className="aside-editor-section">
+                <div>
+                  <div className="panel-heading">
+                    <h2>Collaboration Room</h2>
+                  </div>
+                  <CollaborationBar participants={participants} isOwner={isOwner} handleSession={handleSession} />
+                </div>
+              </section>
+            )}
+            <section className="aside-editor-section">
+              <div className="panel-heading">
+                <h2>Live Suggestions</h2>
+                <button className="button button-secondary" type="button" onClick={() => setEditorPageData((prev) => ({ ...prev, isSuggestionsOn: !prev.isSuggestionsOn }))}>
+                  {isSuggestionsOn ? "Hide" : "Show"}
+                </button>
+              </div>
+              {isSuggestionsOn && (<SuggestionPanel suggestions={suggestions} loading={loading} error={error} />)}
+            </section>
           </aside>
         </div>
       </div>

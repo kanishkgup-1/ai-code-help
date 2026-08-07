@@ -5,6 +5,7 @@ import analyzeRoutes from "./routes/analyzeRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import collaborationRoutes from "./routes/collaborationRoutes.js";
 const app = express();
 
 app.use(
@@ -29,6 +30,7 @@ app.use("/api/analyze", analyzeRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/collaboration", collaborationRoutes);
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });

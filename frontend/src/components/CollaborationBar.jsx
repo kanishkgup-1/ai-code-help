@@ -1,8 +1,13 @@
-function CollaborationBar() {
+function CollaborationBar({ participants = [], isOwner = false, handleSession }) {
   return (
     <div className="collaboration-bar">
-      <h2>Collaboration Session</h2>
-      <p>Participants: {participants.length}</p>
+      {participants.map((participant) => (
+        <article className="participant-box" key={participant._id ?? participant}>{participant.name ?? participant}</article>
+      ))}
+      <button className="button button-danger" type="button" onClick={handleSession}>
+        Leave Room
+      </button>
+      <br/><br/>
     </div>
   );
 }

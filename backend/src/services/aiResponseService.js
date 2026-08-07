@@ -76,7 +76,7 @@ function shouldRetryWithFallbackModel(status, payload) {
   );
 }
 
-async function requestGeminiModel({ model, systemInstruction, prompt, maxOutputTokens = 200 }) {
+async function requestGeminiModel({ model, systemInstruction, prompt, maxOutputTokens = 300 }) {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
@@ -123,7 +123,7 @@ async function requestGeminiModel({ model, systemInstruction, prompt, maxOutputT
   return payload;
 }
 
-async function callGeminiGenerateContent({ systemInstruction, prompt, maxOutputTokens = 200 }) {
+async function callGeminiGenerateContent({ systemInstruction, prompt, maxOutputTokens = 300 }) {
   try {
     return await requestGeminiModel({
       model: env.geminiModel,
@@ -203,7 +203,7 @@ export async function generateAiCodeSuggestions({ code, staticSuggestions }) {
     systemInstruction:
       "You are a Python code review assistant. Prioritize algorithmic efficiency. Only suggest improvements when they clearly reduce time complexity or space complexity.",
     prompt: buildEditorSuggestionPrompt(code, staticSuggestions),
-    maxOutputTokens: 200
+    maxOutputTokens: 300
   });
 
   const text = extractResponseText(payload);
@@ -268,7 +268,7 @@ export async function generateCodeAnswer({ code, question }) {
       "Python code:",
       code
     ].join("\n"),
-    maxOutputTokens: 200
+    maxOutputTokens: 300
   });
 
   const text = extractResponseText(payload);

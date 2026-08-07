@@ -255,10 +255,16 @@ textarea {
   font-weight: 700;
 }
 
+.button-danger {
+  background: linear-gradient(135deg, var(--danger), rgba(234, 44, 44, 0.8));
+  color: #08131f;
+  font-weight: 700;
+  padding: 0.9rem 1.3rem;
+  margin: 1rem 0 0;
+}
 .hero-panel,
 .feature-card,
 .editor-shell,
-.suggestion-panel,
 .chat-form,
 .chat-response {
   background: var(--surface);
@@ -267,6 +273,18 @@ textarea {
   box-shadow: var(--shadow);
 }
 
+.aside-editor-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+.suggestion-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px; 
+}
 .hero-panel {
   padding: 1.5rem;
 }
@@ -350,7 +368,7 @@ textarea {
 .panel-heading h2,
 .chat-bubble h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.3rem;
 }
 
 .editor-header span,
@@ -363,6 +381,16 @@ textarea {
   overflow: hidden;
   border-radius: 1rem;
   border: 1px solid var(--border);
+}
+
+.participant-box {
+  padding: 10px 15px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(10, 8, 8, 0.566);
+  color: var(--text-main);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .suggestion-list {

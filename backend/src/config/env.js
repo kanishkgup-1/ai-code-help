@@ -34,8 +34,8 @@ const env = {
   pythonBin: process.env.PYTHON_BIN ?? "python",
   aiProvider: process.env.AI_PROVIDER ?? "google-ai-studio",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
-  geminiFallbackModel: process.env.GEMINI_FALLBACK_MODEL ?? "gemini-2.5-flash",
+  geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite",
+  geminiFallbackModel: process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite",
   geminiThinkingBudget: Number.parseInt(process.env.GEMINI_THINKING_BUDGET ?? "0", 10)
 };
 

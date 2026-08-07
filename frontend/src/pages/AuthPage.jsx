@@ -12,9 +12,7 @@ function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
-
   if (user) return <Navigate to="/profile" replace />;
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
