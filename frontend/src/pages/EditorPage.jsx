@@ -4,7 +4,7 @@ import SuggestionPanel from "../components/SuggestionPanel";
 import { analyzeCode } from "../services/api";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getCollaborationSession, createCollaborationSession, leaveCollaborationSession } from "../services/collaboration";
+import { getCollaborationSession, createCollaborationSession, joinCollaborationSession, leaveCollaborationSession, createCollaborationSocket } from "../services/collaboration";
 import CollaborationBar from "../components/CollaborationBar";
 import { EditorContext } from "../context/editorContext";
 const initialCode = `# Code here...`;
@@ -33,6 +33,8 @@ function EditorPage() {
     return <Navigate to="/auth" replace />;
   }
   const [copied, setCopied] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const socketRef = useRef(null);
   const lastAiCallAtRef = useRef(0);
   const lastAiReviewedCodeRef = useRef(initialCode);
   const {
@@ -45,7 +47,7 @@ function EditorPage() {
     isSessionOn
   } = editorPageData;
   const { owner, participants = [], roomId } = collaborationSession ?? {};
-  const isOwner = owner === user.id;
+  const isOwner = String(owner?._id ?? owner ?? "") === String(user.id);
 
   useEffect(() => {
     getCollaborationSession(token)
@@ -54,6 +56,38 @@ function EditorPage() {
   }, [token]);
 
   useEffect(() => {
+    if (!roomId) return undefined;
+    const socket = createCollaborationSocket(token);
+    socketRef.current = socket;
+    socket.addEventListener("open", () => socket.send(JSON.stringify({ type: "join", roomId })));
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "room-state") {
+        setEditorPageData((prev) => ({
+          ...prev,
+          code: message.code ?? "",
+          collaborationSession: prev.collaborationSession ? { ...prev.collaborationSession, participants: message.participants ?? [] } : prev.collaborationSession
+        }));
+      }
+      if (message.type === "participants") {
+        setEditorPageData((prev) => ({
+          ...prev,
+          collaborationSession: prev.collaborationSession ? { ...prev.collaborationSession, participants: message.participants ?? [] } : prev.collaborationSession
+        }));
+      }
+      if (message.type === "code") setEditorPageData((prev) => ({ ...prev, code: message.code ?? "" }));
+      if (message.type === "analysis-started") setEditorPageData((prev) => ({ ...prev, loading: true, error: "" }));
+      if (message.type === "suggestions") setEditorPageData((prev) => ({ ...prev, suggestions: message.suggestions ?? [], loading: false, error: "" }));
+      if (message.type === "analysis-error" || message.type === "error") setEditorPageData((prev) => ({ ...prev, loading: false, error: message.error }));
+    });
+    return () => {
+      socket.close();
+      if (socketRef.current === socket) socketRef.current = null;
+    };
+  }, [roomId, token, setEditorPageData]);
+
+  useEffect(() => {
+    if (collaborationSession) return undefined;
     if (!isSuggestionsOn) {
       setEditorPageData((prev) => ({ ...prev, suggestions: [], loading: false, error: "" }));
       return;
@@ -81,6 +115,7 @@ function EditorPage() {
   }, [isSuggestionsOn, code]);
 
   useEffect(() => {
+    if (collaborationSession) return undefined;
     if (!isSuggestionsOn) {
       setEditorPageData((prev) => ({ ...prev, suggestions: [], loading: false, error: "" }));
       return;
@@ -124,7 +159,7 @@ function EditorPage() {
     try {
       let activeRoomId = roomId;
       if (!activeRoomId) {
-        const { session } = await createCollaborationSession(token);
+        const { session } = await createCollaborationSession(token, code);
         setEditorPageData((prev) => ({ ...prev, collaborationSession: session }));
         activeRoomId = session.roomId;
       }
@@ -138,6 +173,15 @@ function EditorPage() {
       }, 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
+    }
+  };
+  const handleJoin = async () => {
+    try {
+      const { session } = await joinCollaborationSession(token, inviteCode.trim());
+      setEditorPageData((prev) => ({ ...prev, collaborationSession: session, isSessionOn: true }));
+      setInviteCode("");
+    } catch (error) {
+      setEditorPageData((prev) => ({ ...prev, error: error.message || "Unable to join the room." }));
     }
   };
   const handleSession = async () => {
@@ -166,8 +210,7 @@ function EditorPage() {
           <section className="editor-shell">
             <div className="editor-header">
               <h2>Python Editor</h2>
-              {(!roomId || (isOwner && participants.length < 2)) ? <span><button className="button button-secondary" type="button" onClick={handleInvite}>{copied ? "Copied!" : "Invite+"}</button></span> : null}
-
+              {(!roomId || (isOwner && participants.length < 4)) ? <span><button className="button button-secondary" type="button" onClick={handleInvite}>{copied ? "Copied!" : "Invite+"}</button></span> : null}
             </div>
             <div className="editor-frame">
               <Editor
@@ -175,7 +218,13 @@ function EditorPage() {
                 defaultLanguage="python"
                 theme="vs-dark"
                 value={code}
-                onChange={(value) => setEditorPageData((prev) => ({ ...prev, code: value ?? "" }))}
+                onChange={(value) => {
+                  const nextCode = value ?? "";
+                  setEditorPageData((prev) => ({ ...prev, code: nextCode }));
+                  if (roomId && socketRef.current?.readyState === WebSocket.OPEN) {
+                    socketRef.current.send(JSON.stringify({ type: "code-change", code: nextCode }));
+                  }
+                }}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
@@ -187,16 +236,14 @@ function EditorPage() {
             </div>
           </section>
           <aside className="suggestion-panel">
-            {isSessionOn && (
-              <section className="aside-editor-section">
-                <div>
-                  <div className="panel-heading">
-                    <h2>Collaboration Room</h2>
-                  </div>
-                  <CollaborationBar participants={participants} isOwner={isOwner} handleSession={handleSession} />
+            <section className="aside-editor-section">
+              <div>
+                <div className="panel-heading">
+                  <h2>Collaboration Room</h2>
                 </div>
-              </section>
-            )}
+                <CollaborationBar participants={participants} isOwner={isOwner} inviteCode = {inviteCode} setInviteCode={setInviteCode} handleSession={handleSession} handleJoin={handleJoin} />
+              </div>
+            </section>
             <section className="aside-editor-section">
               <div className="panel-heading">
                 <h2>Live Suggestions</h2>
@@ -209,7 +256,7 @@ function EditorPage() {
           </aside>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 export default EditorPage;

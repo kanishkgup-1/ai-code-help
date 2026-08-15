@@ -15,7 +15,8 @@ export async function getCollaborationSession(req, res, next) {
 export async function createCollaborationSession(req, res, next) {
     try {
         const roomId = randomUUID().substring(0, 6);
-        const session = await CollabSession.create({ roomId, owner: req.user.id, participants: [req.user.id] });
+        const code = typeof req.body.code === "string" ? req.body.code : "";
+        const session = await CollabSession.create({ roomId, owner: req.user.id, participants: [req.user.id], code });
         await session.populate("participants", "name");
         res.status(201).json({ session });
     } catch (error) {
@@ -29,6 +30,9 @@ export async function joinCollaborationSession(req, res, next) {
         const session = await CollabSession.findOne({ roomId });
         if (!session) throw createHttpError(404, "Collaboration session not found.");
         if (!session.participants.some((id) => id.toString() === req.user.id.toString())) {
+            if (session.participants.length >= 4) {
+                throw createHttpError(409, "This collaboration room is full (maximum 4 people).");
+            }
             session.participants.push(req.user.id);
         }
         await session.save();
