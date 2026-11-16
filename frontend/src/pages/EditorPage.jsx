@@ -5,6 +5,7 @@ import SessionFinishModal from "../components/SessionFinishModal";
 import { analyzeCode, replaceCode, getReplaceCooldown } from "../services/api";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { getCollaborationSession, createCollaborationSession, joinCollaborationSession, leaveCollaborationSession, createCollaborationSocket } from "../services/collaboration";
 import CollaborationBar from "../components/CollaborationBar";
 import { EditorContext } from "../context/editorContext";
@@ -34,6 +35,7 @@ function countNewMeaningfulLines(currentCode, previousCode) {
 
 function EditorPage() {
   const { user, token } = useAuth();
+  const { theme } = useTheme();
   const { editorPageData, setEditorPageData } = useContext(EditorContext);
   if (!user || user.tier !== "pro") {
     alert("Subscribe to Pro to access the editor.");
@@ -317,7 +319,7 @@ function EditorPage() {
               <Editor
                 height="70vh"
                 defaultLanguage="python" 
-                theme="vs-dark"
+                theme={theme === "light" ? "light" : "vs-dark"}
                 value={code}
                 onChange={(value) => {
                   const nextCode = value ?? "";

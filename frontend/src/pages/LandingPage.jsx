@@ -44,7 +44,9 @@ function LandingPage() {
             </div>
           </div>
 
-          <div className="hero-panel">
+          {
+            /*
+            <div className="hero-panel">
             <div className="hero-snippet">
               <span className="snippet-label">MVP Focus</span>
               <ul>
@@ -55,6 +57,8 @@ function LandingPage() {
               </ul>
             </div>
           </div>
+            */
+          }
         </div>
       </section>
 
