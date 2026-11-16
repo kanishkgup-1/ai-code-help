@@ -1,12 +1,20 @@
 import Editor from "@monaco-editor/react";
 import { useContext, useEffect, useRef, useState } from "react";
 import SuggestionPanel from "../components/SuggestionPanel";
+import SessionFinishModal from "../components/SessionFinishModal";
 import { analyzeCode, replaceCode, getReplaceCooldown } from "../services/api";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getCollaborationSession, createCollaborationSession, joinCollaborationSession, leaveCollaborationSession, createCollaborationSocket } from "../services/collaboration";
 import CollaborationBar from "../components/CollaborationBar";
 import { EditorContext } from "../context/editorContext";
+import {
+  getSavedCode,
+  saveCode,
+  accumulateSessionSuggestions,
+  getSessionSuggestions,
+  clearAllSessionData
+} from "../utils/sessionStorage";
 const initialCode = `# Code here...`;
 
 const STATIC_ANALYSIS_DELAY_MS = 800;
@@ -35,6 +43,8 @@ function EditorPage() {
   const [copied, setCopied] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [aiReplaceCooldown, setAiReplaceCooldown] = useState(0);
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [sessionSuggestionsList, setSessionSuggestionsList] = useState([]);
   const socketRef = useRef(null);
   const lastAiCallAtRef = useRef(0);
   const lastAiReviewedCodeRef = useRef(initialCode);
@@ -49,6 +59,18 @@ function EditorPage() {
   } = editorPageData;
   const { owner, participants = [], roomId } = collaborationSession ?? {};
   const isOwner = String(owner?._id ?? owner ?? "") === String(user.id);
+
+  useEffect(() => {
+    if (collaborationSession || isSessionOn) return;
+    const savedCode = getSavedCode();
+    if (savedCode !== null && savedCode !== undefined) {
+      if (!code) {
+        setEditorPageData((prev) => ({ ...prev, code: savedCode }));
+      }
+    } else if (!code) {
+      setEditorPageData((prev) => ({ ...prev, code: initialCode }));
+    }
+  }, [collaborationSession, isSessionOn]);
 
   useEffect(() => {
     getCollaborationSession(token)
@@ -105,6 +127,9 @@ function EditorPage() {
         setEditorPageData((prev) => ({ ...prev, loading: true, error: "" }));
         const data = await analyzeCode(code, { useAi: false });
         setEditorPageData((prev) => ({ ...prev, suggestions: data.suggestions ?? [] }));
+        if (!collaborationSession && !isSessionOn && Array.isArray(data.suggestions)) {
+          accumulateSessionSuggestions(data.suggestions);
+        }
       } catch (analysisError) {
         setEditorPageData((prev) => ({ ...prev, error: analysisError.message || "Unable to analyze code right now." }));
       } finally {
@@ -145,6 +170,9 @@ function EditorPage() {
         if (data.aiUsed === true) {
           lastAiCallAtRef.current = Date.now();
           lastAiReviewedCodeRef.current = code;
+        }
+        if (!collaborationSession && !isSessionOn && Array.isArray(data.suggestions)) {
+          accumulateSessionSuggestions(data.suggestions);
         }
       } catch (analysisError) {
         setEditorPageData((prev) => ({ ...prev, error: analysisError.message || "Unable to run AI review right now." }));
@@ -221,6 +249,9 @@ function EditorPage() {
       const data = await replaceCode(code, token);
       if (data?.code) {
         setEditorPageData((prev) => ({ ...prev, code: data.code }));
+        if (!roomId && !isSessionOn) {
+          saveCode(data.code);
+        }
       }
       setIsReplacing(false);
       setAiReplaceCooldown(data?.cooldownRemaining ?? 120);
@@ -228,6 +259,19 @@ function EditorPage() {
       setIsReplacing(false);
       console.error("Failed to replace code:", error);
     }
+  };
+
+  const handleFinishClick = () => {
+    const allSuggestions = getSessionSuggestions();
+    setSessionSuggestionsList(allSuggestions);
+    setIsFinishModalOpen(true);
+  };
+
+  const handleConfirmFinish = () => {
+    clearAllSessionData();
+    setEditorPageData((prev) => ({ ...prev, code: initialCode, suggestions: [] }));
+    setSessionSuggestionsList([]);
+    setIsFinishModalOpen(false);
   };
   return (
     <div className="page-section">
@@ -248,17 +292,39 @@ function EditorPage() {
             <div className="editor-header">
               <h2>Python Editor</h2>
               {(!roomId || (isOwner && participants.length < 4)) ? <span><button className="button button-secondary" type="button" onClick={handleInvite}>{copied ? "Copied!" : "Invite+"}</button></span> : null}
-              {isSessionOn ? null : <button className="button button-primary" type="button" onClick={handleReplace} disabled={isReplacing || aiReplaceCooldown > 0}>{isReplacing ? "Replacing..." : aiReplaceCooldown > 0 ? `Wait ${aiReplaceCooldown}s` : "Replace"}</button>}
+              {isSessionOn ? null : (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                  <button
+                    className="button button-primary"
+                    type="button"
+                    onClick={handleReplace}
+                    disabled={isReplacing || aiReplaceCooldown > 0}
+                  >
+                    {isReplacing ? "Replacing..." : aiReplaceCooldown > 0 ? `Wait ${aiReplaceCooldown}s` : "Replace"}
+                  </button>
+                  <button
+                    className="button button-danger"
+                    type="button"
+                    style={{ margin: 0 }}
+                    onClick={handleFinishClick}
+                  >
+                    Finish
+                  </button>
+                </div>
+              )}
             </div>
             <div className="editor-frame">
               <Editor
                 height="70vh"
-                defaultLanguage="python"
+                defaultLanguage="python" 
                 theme="vs-dark"
                 value={code}
                 onChange={(value) => {
                   const nextCode = value ?? "";
                   setEditorPageData((prev) => ({ ...prev, code: nextCode }));
+                  if (!roomId && !isSessionOn) {
+                    saveCode(nextCode);
+                  }
                   if (roomId && socketRef.current?.readyState === WebSocket.OPEN) {
                     socketRef.current.send(JSON.stringify({ type: "code-change", code: nextCode }));
                   }
@@ -294,6 +360,13 @@ function EditorPage() {
           </aside>
         </div>
       </div>
+
+      <SessionFinishModal
+        isOpen={isFinishModalOpen}
+        onClose={() => setIsFinishModalOpen(false)}
+        suggestions={sessionSuggestionsList}
+        onConfirmFinish={handleConfirmFinish}
+      />
     </div >
   );
 }
