@@ -11,8 +11,8 @@ function Layout() {
       <header className="site-header">
         <div className="container nav-bar">
           <NavLink to="/" className="brand-mark">
+            <span>CodeSphere</span>
             <span className="brand-badge">AI</span>
-            <span>Code Help</span>
           </NavLink>
 
           <nav className="nav-links" aria-label="Main navigation">
@@ -27,7 +27,7 @@ function Layout() {
             </NavLink>
             {user ? (
               <NavLink to="/profile" className="profile-link" aria-label="Open profile" title="Open profile">
-                <div>{(user.name[0]+user.name.split(" ")[1]?.[0] || "").toUpperCase()}</div>
+                <div>{(user.name[0] + user.name.split(" ")[1]?.[0] || user.name[1]).toUpperCase()}</div>
                 <span className="sr-only">Profile</span>
               </NavLink>
             ) : (
@@ -46,7 +46,6 @@ function Layout() {
       <footer className="site-footer">
         <div className="container footer-content">
           <p>Built for Python-first AI coding support.</p>
-          <p>React, Monaco, Express, and a clean MVP structure.</p>
         </div>
       </footer>
     </div>

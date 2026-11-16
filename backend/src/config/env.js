@@ -36,7 +36,9 @@ const env = {
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite",
   geminiFallbackModel: process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite",
-  geminiThinkingBudget: Number.parseInt(process.env.GEMINI_THINKING_BUDGET ?? "0", 10)
+  geminiThinkingBudget: Number.parseInt(process.env.GEMINI_THINKING_BUDGET ?? "0", 10),
+  redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+  replaceCooldownSeconds: Number.parseInt(process.env.AI_REPLACE_COOLDOWN_SECONDS ?? "120", 10)
 };
 
 export default env;

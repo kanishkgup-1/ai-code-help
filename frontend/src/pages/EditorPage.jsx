@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useContext, useEffect, useRef, useState } from "react";
 import SuggestionPanel from "../components/SuggestionPanel";
-import { analyzeCode } from "../services/api";
+import { analyzeCode, replaceCode, getReplaceCooldown } from "../services/api";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getCollaborationSession, createCollaborationSession, joinCollaborationSession, leaveCollaborationSession, createCollaborationSocket } from "../services/collaboration";
@@ -13,7 +13,6 @@ const STATIC_ANALYSIS_DELAY_MS = 800;
 const AI_ANALYSIS_DELAY_MS = 2000;
 const AI_REVIEW_COOLDOWN_MS = 20000;
 const MIN_NEW_MEANINGFUL_LINES = 5;
-
 function getMeaningfulLines(value) {
   return value
     .split(/\r?\n/)
@@ -32,8 +31,10 @@ function EditorPage() {
     alert("Subscribe to Pro to access the editor.");
     return <Navigate to="/auth" replace />;
   }
+  const [isReplacing, setIsReplacing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
+  const [aiReplaceCooldown, setAiReplaceCooldown] = useState(0);
   const socketRef = useRef(null);
   const lastAiCallAtRef = useRef(0);
   const lastAiReviewedCodeRef = useRef(initialCode);
@@ -155,6 +156,27 @@ function EditorPage() {
     return () => window.clearTimeout(timeoutId);
   }, [isSuggestionsOn, code]);
 
+  useEffect(() => {
+    if (!token) return;
+    getReplaceCooldown(token)
+      .then((data) => {
+        if (data?.cooldownRemaining > 0) {
+          setAiReplaceCooldown(data.cooldownRemaining);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch replace cooldown:", err);
+      });
+  }, [token]);
+
+  useEffect(() => {
+    if (aiReplaceCooldown <= 0) return undefined;
+    const intervalId = setInterval(() => {
+      setAiReplaceCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [aiReplaceCooldown]);
+
   const handleInvite = async () => {
     try {
       let activeRoomId = roomId;
@@ -181,7 +203,8 @@ function EditorPage() {
       setEditorPageData((prev) => ({ ...prev, collaborationSession: session, isSessionOn: true }));
       setInviteCode("");
     } catch (error) {
-      setEditorPageData((prev) => ({ ...prev, error: error.message || "Unable to join the room." }));
+      alert(error.message || "Unable to join the room.");
+      // setEditorPageData((prev) => ({ ...prev, error: error.message || "Unable to join the room." }));
     }
   };
   const handleSession = async () => {
@@ -190,6 +213,20 @@ function EditorPage() {
       setEditorPageData((prev) => ({ ...prev, collaborationSession: null, isSessionOn: false }));
     } catch (error) {
       console.error("Failed to leave room:", error);
+    }
+  };
+  const handleReplace = async () => {
+    try {
+      setIsReplacing(true);
+      const data = await replaceCode(code, token);
+      if (data?.code) {
+        setEditorPageData((prev) => ({ ...prev, code: data.code }));
+      }
+      setIsReplacing(false);
+      setAiReplaceCooldown(data?.cooldownRemaining ?? 120);
+    } catch (error) {
+      setIsReplacing(false);
+      console.error("Failed to replace code:", error);
     }
   };
   return (
@@ -211,6 +248,7 @@ function EditorPage() {
             <div className="editor-header">
               <h2>Python Editor</h2>
               {(!roomId || (isOwner && participants.length < 4)) ? <span><button className="button button-secondary" type="button" onClick={handleInvite}>{copied ? "Copied!" : "Invite+"}</button></span> : null}
+              {isSessionOn ? null : <button className="button button-primary" type="button" onClick={handleReplace} disabled={isReplacing || aiReplaceCooldown > 0}>{isReplacing ? "Replacing..." : aiReplaceCooldown > 0 ? `Wait ${aiReplaceCooldown}s` : "Replace"}</button>}
             </div>
             <div className="editor-frame">
               <Editor
@@ -241,7 +279,7 @@ function EditorPage() {
                 <div className="panel-heading">
                   <h2>Collaboration Room</h2>
                 </div>
-                <CollaborationBar participants={participants} isOwner={isOwner} inviteCode = {inviteCode} setInviteCode={setInviteCode} handleSession={handleSession} handleJoin={handleJoin} />
+                <CollaborationBar participants={participants} isOwner={isOwner} inviteCode={inviteCode} setInviteCode={setInviteCode} handleSession={handleSession} handleJoin={handleJoin} />
               </div>
             </section>
             <section className="aside-editor-section">

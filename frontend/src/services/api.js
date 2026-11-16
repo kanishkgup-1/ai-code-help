@@ -26,6 +26,20 @@ export function analyzeCode(code, options = {}) {
   });
 }
 
+export function replaceCode(code, token) {
+  return request(
+    "/replace",
+    {
+      code
+    },
+    token ? { token } : {}
+  );
+}
+
+export function getReplaceCooldown(token) {
+  return request("/replace/cooldown", undefined, { method: "GET", token });
+}
+
 export function askCodeQuestion(payload) {
   return request("/chat", payload);
 }

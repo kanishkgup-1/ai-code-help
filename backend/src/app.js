@@ -6,6 +6,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import collaborationRoutes from "./routes/collaborationRoutes.js";
+import replaceRoutes from "./routes/replaceRoutes.js";
 const app = express();
 
 app.use(
@@ -15,7 +16,6 @@ app.use(
         callback(null, true);
         return;
       }
-
       callback(new Error(`CORS blocked origin: ${origin}`));
     }
   })
@@ -31,6 +31,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/collaboration", collaborationRoutes);
+app.use("/api/replace", replaceRoutes);
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
